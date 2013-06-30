@@ -1,0 +1,18 @@
+--- tor-HEAD-cde1a2c/src/or/config.c	2013-06-24 09:55:29.000000000 -0700
++++ tor-HEAD-cde1a2c-patched/src/or/config.c	2013-06-25 18:09:48.523437262 -0700
+@@ -4244,12 +4244,15 @@
+   socks_string_len = strlen(socks_string);
+   tor_free(socks_string);
+ 
++#if 0
++  /* XXX/Yawning: SOCKS 4 supports gigantic arguments */
+   if (socks_string_len > MAX_SOCKS5_AUTH_SIZE_TOTAL) {
+     log_warn(LD_CONFIG, "SOCKS arguments can't be more than %u bytes (%lu).",
+              MAX_SOCKS5_AUTH_SIZE_TOTAL,
+              (unsigned long) socks_string_len);
+     return -1;
+   }
++#endif
+ 
+   return 0;
+ }

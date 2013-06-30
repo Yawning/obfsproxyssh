@@ -1,0 +1,135 @@
+obfsproxyssh: A SSH wire protocol Tor Pluggable Transport
+Yawning Angel <yawning at schwanenlied dot me>
+
+Dependencies:
+ * libevent 2.0.x (http://libevent.org/)
+ * libssh2 (http://www.libssh2.org/)
+ * openssl (http://www.openssl.org)
+ * (Client side) A bleeding edge version of Tor from Git (PT argument passing is
+   not present in 0.2.3.25 or 0.2.4.14-alpha).  Additionally the patches
+   contained in tor-patches should be applied.
+
+Included third party code:
+ * Better String Library (http://bstring.sourceforge.net)
+ * queue.h (From *BSD)
+
+***** WARNING *****
+
+THIS SOFTWARE IS NOT PRODUCTION READY, FURTHER WORK IS NEEDED TO MAKE IT
+RESISTANT TO FINGERPRINTING.
+
+***** WARNING *****
+
+How it works:
+
+obfsproxyssh attempts to bypass attempts to prevent access to  Tor by
+communicating to bridges via the ubiquitous SSH protocol.  Unlike other
+similar projects a real SSH client is used and thus obfsproxyssh should be more
+resistant to detection/fingerprinting.
+
+On receiving a connection request over SOCKS 4, obfsproxyssh will open a
+connection to the bridge, authenticate and establish a direct-tcp channel in an
+identical manner to a user opening a ssh tunnel.
+
+Things that are beyond the scope of the threat model used in development:
+
+ * Attacks against the bridge distribution mechanism.  How people chose to
+   distribute obfsproxyssh bridge information is beyond the scope of this
+   project (Eg: An adversary can enumerate all the bridges by throwing manpower
+   at the problem).
+ * Statistical analysis on the traffic.  It is possible that Tor over a SSH
+   tunnel is distinctive from other protocols tunneled over SSH.  It would be
+   possible to morph the proxy->bridge traffic and still continue to use a real
+   SSHD on the remote end without modifications, however the author feels that
+   solving this problem is something more suited by modifications to Tor itself.
+ * Adversaries that disallow SSH.  If the user is unable to SSH to arbitrary
+   hosts, obfsproxyssh will not function.  Sorry Iran.
+ * Active probing attacks vs other components on the bridge.  Obfsproxyssh
+   bridges SHOULD require obfsproxyssh to be the only method of access to the
+   bridge.  If the OrPort is exposed on a public interface, an active probing
+   attack will defeat obfsproxyssh.
+ * User stupidity (Eg: Editing the bridge line when the connect fails due to
+   fingerprint mismatch).
+ * Bridge admin stupidity (Eg: Giving the obfsproxyssh user a shell account
+   or neglecting to limit TCP tunnel endpoints to the Or Port on the loopback
+   interface).
+
+Example bridge side configuration:
+
+Add a user "obfsproxyssh" (/bin/nologin as a shell and a disabled password is
+fine, a terminal is unneccecary to use Tcp Forwarding).
+
+Generate a RSA keypair with "ssh-keygen -t rsa", and populate ~obfsproxyssh/.ssh
+as appropriate (the newly created public key should be added to
+authorized_keys).  The newly created private key should be converted to a format
+suitable for the "privkey" PT argument.
+
+Calculate the RSA hostkey fingerprint for the "hostkey-rsa" PT argument:
+  ssh-keygen -l -f /etc/ssh/ssh_host_rsa_key.pub
+
+Calculate the DSA hostkey fingerprint for the "hostkey-dsa" PT argument:
+  ssh-keygen -l -f /etc/ssh/ssh_host_dsa_key.pub
+
+In /etc/ssh/sshd_config:
+Match User obfsproxyssh
+    AllowTcpForwarding yes
+    AllowAgentForwarding no
+    X11Forwarding no
+    PermitTunnel no
+    GatewayPorts no
+    PermitOpen localhost:6969
+    ForceCommand echo 'Shell access not allowed' (Can be omitted if shell is set
+		                                  to nologin)
+
+WARNING: sshd will log incoming connections to syslog.  In the long run patches
+that disable logging for specific users would be a good idea.  In the short
+term, consider using using a separate instance of sshd just for the obfsproxyssh
+user launched with the "-q" option.
+
+Example Bridge torrc:
+
+# Yes, this is identical to a normal private bridge, aside from the private OR
+# Port  (Some versions of Tor may not deal well with a private OR Port.)
+ORPort 127.0.0.1:6969
+#ORPort 0.0.0.0:6969
+PublishServerDescriptor 0
+SocksPort 0
+BridgeRelay 1
+Exitpolicy reject *:*
+
+Required PT arguments:
+
+ * "hostkey-rsa=XX:XX:XX...XX:XX:XX"
+     The bridge's SSH RSA hostkey fingerprint (case insensitive).  Both MD5 and
+     SHA1 digests are supported.
+ * "hostkey-dsa=XX:XX:XX...XX:XX:XX"
+     The bridge's SSH DSA hostkey fingerprint (case insensitive).  Both MD5 and
+     SHA1 digests are supported.
+ * "user=USERNAME"
+     The user to authenticate as (case sensitive).
+ * "privkey=PRIVATEKEY"
+     The user's private key in PEM format ("BEGIN RSA PRIVATE KEY") with the
+     headers, footers and newlines removed.  Note: Encrypted keys are NOT
+     supported.
+ * "orport=XXXXX"
+     The ORPort that the remote end should link the tunnel to.  Note that the
+     remote bridge must expose the OrPort on 127.0.0.1:XXXXX.
+
+Example Client torrc:
+
+#
+# For sufficiently recent (git) versions of Tor with the patches from
+# ./tor-patches applied
+#
+Bridge ssh 192.168.1.3:22 keyid=<BRIDGE KEY FINGERPRINT HERE> hostkey-rsa=<RSA HOST KEY HERE> hostkey-dsa=<DSA HOST KEY HERE> user=obfsproxyssh orport=6969 privkey=<RSA PRIVATE KEY HERE>
+ClientTransportPlugin ssh exec /home/yawning/Documents/Development/obfsproxyssh/build/src/obfsproxyssh 
+UseBridges 1
+UpdateBridgesFromAuthority 0
+
+# For older versions of Tor, or Tor without the patches
+Bridge ssh 192.168.1.3:22 <BRIDGE KEY FINGERPRINT HERE>
+ClientTransportPlugin ssh exec /home/yawning/Documents/Development/obfsproxyssh/build/src/obfsproxyssh -c hostkey-rsa=<RSA HOST KEY HERE>;hostkey-dsa=<DSA HOST KEY HERE>;user=obfsproxyssh;orport=6969;privkey=<RSA PRIVATE KEY HERE>
+UseBridges 1
+UpdateBridgesFromAuthority 0
+
+

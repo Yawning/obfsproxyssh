@@ -1,0 +1,25 @@
+This is an attempt to document various sshd behaviors seen in the wild so that
+obfsproxyssh can mimic them plausibly.  Emphasis is placed on the phases that go
+unencrypted over the wire.
+
+Putty 0.62 ("SSH-2.0-PuTTY_Release_0.62"):
+ Key Exchange Init
+  * KEX algorithms: diffie-hellman-group-exchange-sha256,diffie-hellman-group-exchange-sha1,diffie-hellman-group14-sha1,diffie-hellman-group1-sha1,rsa2048-sha256,rsa1024-sha1
+  * Server host key algorithms: ssh-rsa,ssh-dss
+  * Encryption algorithms client to server: aes256-ctr,aes256-cbc,rijndael-cbc@lysator.liu.se,aes192-ctr,aes192-cbc,blowfish-ctr,blowfish-cbc,3des-ctr,3des-cbc,arcfour256,arcfour128
+  * Encryption algorithms server to client: aes256-ctr,aes256-cbc,rijndael-cbc@lysator.liu.se,aes192-ctr,aes192-cbc,blowfish-ctr,blowfish-cbc,3des-ctr,3des-cbc,arcfour256,arcfour128
+  * MAC algorithms client to server: hmac-sha1,hmac-sha1-96,hmac-md5
+  * MAC algorithms server to client: hmac-sha1,hmac-sha1-96,hmac-md5
+  * Compression algorithms client to server: none,zlib
+  * Compression algorithms server to client: none,zlib
+  * Languages client to server: NULL
+  * Languages server to client: NULL
+  * KEX First Packet Follows: 0
+  * Reserved: 0x00000000
+
+TODO (Libssh2 feature adds):
+ * sha256 KEX methods
+ * rsa KEX methods
+ * blowfish-ctr support
+ * arcfour256 support
+ * 3des-ctr support

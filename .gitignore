@@ -1,0 +1,7 @@
+*.swp
+*~
+*.o
+
+# Ignore the directory I stash my cmake build files in
+/build
+
